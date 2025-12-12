@@ -1,0 +1,60 @@
+What is the derivative of x^3?
+3x^2
+x^2
+3x
+x^3
+1
+d/dx [sin x] = ?
+cos x
+-cos x
+sin x
+-sin x
+1
+d/dx [e^x] = ?
+e^x
+xe^x
+ln x
+0
+1
+(fg)' = ?
+f'g'
+f'g + fg'
+f'g - fg'
+f'g / fg'
+2
+d/dx [sin(2x)] = ?
+sin(2x)
+2 cos(2x)
+cos x
+2 sin x
+2
+d/dx [ln x] = ? (x>0)
+1/x
+ln x
+x
+0
+1
+What is the derivative of a constant c?
+0
+c
+1
+Does not exist
+1
+d/dx [x^{-1}] = ?
+1/x^2
+-1/x^2
+-x^2
+1/x
+2
+What is the meaning of the derivative at point x?
+The function value at that point
+Area under the graph
+Slope of the tangent line
+Inverse of the function
+3
+What does the second derivative f''(x) tell us?
+How fast the function value changes
+Area under the graph
+Concavity and rate of change of slope
+Inverse function
+3
