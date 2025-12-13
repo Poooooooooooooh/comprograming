@@ -6,6 +6,13 @@
 
 #ifdef _WIN32
 #include <windows.h>
+/* Define Windows version requirements for newer console features */
+#ifndef _WIN32_WINNT
+#define _WIN32_WINNT 0x0601 /* Windows 7+ */
+#endif
+#ifndef ENABLE_VIRTUAL_TERMINAL_PROCESSING
+#define ENABLE_VIRTUAL_TERMINAL_PROCESSING 0x0004
+#endif
 #endif
 
 #define MAX_QUESTIONS 64
@@ -64,8 +71,75 @@ static void clear_screen(void) {
 /* Console UTF-8 setup */
 static void setup_console_utf8(void) {
 #ifdef _WIN32
+    /* Set UTF-8 code pages */
     SetConsoleOutputCP(65001);
     SetConsoleCP(65001);
+    
+    /* Enable virtual terminal processing for better Unicode support (Windows 10+) */
+    HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
+    if (hOut != INVALID_HANDLE_VALUE) {
+        DWORD dwMode = 0;
+        if (GetConsoleMode(hOut, &dwMode)) {
+            dwMode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+            SetConsoleMode(hOut, dwMode); /* Ignore error if not supported */
+        }
+    }
+    
+    /* Try to set a font that supports mathematical symbols */
+    HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
+    if (hConsole != INVALID_HANDLE_VALUE) {
+        /* Use CONSOLE_FONT_INFOEX if available (Windows Vista+) */
+        typedef struct _CONSOLE_FONT_INFOEX_WRAP {
+            ULONG cbSize;
+            DWORD nFont;
+            COORD dwFontSize;
+            UINT FontFamily;
+            UINT FontWeight;
+            WCHAR FaceName[LF_FACESIZE];
+        } CONSOLE_FONT_INFOEX_WRAP;
+        
+        typedef BOOL (WINAPI *GetCurrentConsoleFontExProc)(HANDLE, BOOL, void*);
+        typedef BOOL (WINAPI *SetCurrentConsoleFontExProc)(HANDLE, BOOL, void*);
+        
+        HMODULE hKernel32 = GetModuleHandleA("kernel32.dll");
+        if (hKernel32) {
+            GetCurrentConsoleFontExProc pGetFont = (GetCurrentConsoleFontExProc)
+                GetProcAddress(hKernel32, "GetCurrentConsoleFontEx");
+            SetCurrentConsoleFontExProc pSetFont = (SetCurrentConsoleFontExProc)
+                GetProcAddress(hKernel32, "SetCurrentConsoleFontEx");
+            
+            if (pGetFont && pSetFont) {
+                CONSOLE_FONT_INFOEX_WRAP cfi;
+                memset(&cfi, 0, sizeof(cfi));
+                cfi.cbSize = sizeof(cfi);
+                if (pGetFont(hConsole, FALSE, &cfi)) {
+                    /* Try to use Consolas or a font that supports Unicode */
+                    #ifdef __MINGW32__
+                        wcscpy(cfi.FaceName, L"Consolas");
+                    #else
+                        wcscpy_s(cfi.FaceName, LF_FACESIZE, L"Consolas");
+                    #endif
+                    cfi.dwFontSize.X = 0;
+                    cfi.dwFontSize.Y = 16;
+                    cfi.FontFamily = FF_DONTCARE;
+                    cfi.FontWeight = FW_NORMAL;
+                    pSetFont(hConsole, FALSE, &cfi); /* Ignore error if fails */
+                }
+            }
+        }
+    }
+    
+    /* Set console buffer size for better display */
+    HANDLE hConsoleOutput = GetStdHandle(STD_OUTPUT_HANDLE);
+    if (hConsoleOutput != INVALID_HANDLE_VALUE) {
+        CONSOLE_SCREEN_BUFFER_INFO csbi;
+        if (GetConsoleScreenBufferInfo(hConsoleOutput, &csbi)) {
+            COORD newSize;
+            newSize.X = csbi.dwSize.X;
+            newSize.Y = 3000; /* Increase buffer for scrolling */
+            SetConsoleScreenBufferSize(hConsoleOutput, newSize);
+        }
+    }
 #endif
 }
 
@@ -78,7 +152,22 @@ static void run_test_mode(const Chapter *chap, const char *username);
 /* Parse quiz file into Question array; return count loaded */
 /* Format: question, 4 options, answer (1-4), optional explanation */
 static int load_quiz_from_file(const char *path, Question *out, int max_out) {
+#ifdef _WIN32
+    /* On Windows, try to open with UTF-8 encoding */
+    FILE *fp = NULL;
+    /* Try with explicit UTF-8 mode (Windows-specific) */
+    #ifdef __MINGW32__
+        /* MinGW: use regular fopen, encoding handled by console */
+        fp = fopen(path, "r");
+    #else
+        /* MSVC: try UTF-8 mode */
+        if (fopen_s(&fp, path, "r, ccs=UTF-8") != 0) {
+            fp = fopen(path, "r");
+        }
+    #endif
+#else
     FILE *fp = fopen(path, "r");
+#endif
     if (!fp) return 0;
     char line[MAX_TEXT];
     int count = 0;
@@ -111,21 +200,8 @@ static int load_quiz_from_file(const char *path, Question *out, int max_out) {
             else trim_newline(ans_line);
         }
         
-        /* Try to read explanation (optional) */
-        /* Explanation format: if next line exists and doesn't start with digit, it's an explanation */
-        if (ok) {
-            long pos = ftell(fp);
-            if (fgets(line, sizeof(line), fp)) {
-                trim_newline(line);
-                if (line[0] != '\0' && (line[0] < '0' || line[0] > '9')) {
-                    /* Not a number, likely an explanation */
-                    strncpy(expl, line, sizeof(expl)-1);
-                } else {
-                    /* Put it back - seek to before this line */
-                    fseek(fp, pos, SEEK_SET);
-                }
-            }
-        }
+        /* Note: Quiz files don't contain explanations - they're only in fallback quizzes */
+        /* If we wanted to support explanations in files, we'd need a marker like "EXPLANATION:" */
         
         if (!ok) break;
 
