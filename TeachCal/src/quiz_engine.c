@@ -22,16 +22,34 @@ void run_learn_mode(const Chapter *chap) {
         printf("(Using sample quiz: %d questions)\n\n", total_loaded);
     }
 
+    /* Ask user for number of questions */
+    printf("How many questions would you like? (Press Enter for all %d questions): ", total_loaded);
+    char num_input[16];
+    read_line(num_input, sizeof(num_input));
+    
+    int ask_total = total_loaded;
+    if (num_input[0] != '\0') {
+        int requested = atoi(num_input);
+        if (requested > 0 && requested <= total_loaded) {
+            ask_total = requested;
+        } else if (requested > total_loaded) {
+            printf("Only %d questions available. Using all questions.\n", total_loaded);
+            printf("Press Enter to continue...");
+            char wait[8];
+            read_line(wait, sizeof(wait));
+        }
+    }
+
     int idx[MAX_QUESTIONS];
     for (int i = 0; i < total_loaded; i++) idx[i] = i;
     shuffle_indices(idx, total_loaded);
     
-    for (int k = 0; k < total_loaded; k++) {
+    for (int k = 0; k < ask_total; k++) {
         int qi = idx[k];
         Question *q = &all[qi];
         clear_screen();
         printf("=== Learn Mode: %s ===\n", chap->name);
-        printf("Question %d/%d\n\n", k+1, total_loaded);
+        printf("Question %d/%d\n\n", k+1, ask_total);
         printf("%s\n", q->prompt);
         for (int i = 0; i < 4; i++) {
             printf("  %d) %s\n", i+1, q->options[i]);
@@ -79,7 +97,7 @@ void run_learn_mode(const Chapter *chap) {
     
     clear_screen();
     printf("=== Learn Mode Complete ===\n");
-    printf("You have completed all %d questions!\n", total_loaded);
+    printf("You have completed all %d questions!\n", ask_total);
     printf("\nPress Enter to return to menu...");
     char wait[8];
     read_line(wait, sizeof(wait));
@@ -102,11 +120,27 @@ void run_test_mode(const Chapter *chap, const char *username) {
         printf("(Using sample quiz: %d questions)\n\n", total_loaded);
     }
 
+    /* Ask user for number of questions */
+    printf("How many questions would you like? (Press Enter for all %d questions): ", total_loaded);
+    char num_input[16];
+    read_line(num_input, sizeof(num_input));
+    
+    int ask_total = total_loaded;
+    if (num_input[0] != '\0') {
+        int requested = atoi(num_input);
+        if (requested > 0 && requested <= total_loaded) {
+            ask_total = requested;
+        } else if (requested > total_loaded) {
+            printf("Only %d questions available. Using all questions.\n", total_loaded);
+            printf("Press Enter to continue...");
+            char wait[8];
+            read_line(wait, sizeof(wait));
+        }
+    }
+
     int idx[MAX_QUESTIONS];
     for (int i = 0; i < total_loaded; i++) idx[i] = i;
     shuffle_indices(idx, total_loaded);
-    
-    int ask_total = total_loaded < 10 ? total_loaded : 10;
     int answers[MAX_QUESTIONS] = {0};
     
     /* Collect all answers without showing feedback */
