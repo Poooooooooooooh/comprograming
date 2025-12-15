@@ -236,6 +236,113 @@ int chapter_menu(const Chapter *chap, const char *username, int mode) {
     return 0; /* back to main menu */
 }
 
+/* Display score history from log file */
+void show_score_history(void) {
+    clear_screen();
+    printf("=== Score History ===\n\n");
+    
+    FILE *fp = fopen("logs/quiz_score.log", "r");
+    if (!fp) {
+        printf("No score history found. Take a test to generate scores!\n");
+        printf("\nPress Enter to return to menu...");
+        char wait[8];
+        read_line(wait, sizeof(wait));
+        return;
+    }
+    
+    char line[512];
+    int count = 0;
+    int test_count = 0;
+    
+    /* Count total lines and test entries */
+    while (fgets(line, sizeof(line), fp)) {
+        count++;
+        if (strstr(line, "[TEST]")) {
+            test_count++;
+        }
+    }
+    
+    if (test_count == 0) {
+        fclose(fp);
+        printf("No test scores found. Take a test to generate scores!\n");
+        printf("\nPress Enter to return to menu...");
+        char wait[8];
+        read_line(wait, sizeof(wait));
+        return;
+    }
+    
+    /* Rewind and collect all test entries */
+    rewind(fp);
+    
+    /* Allocate array for all test entries */
+    char **lines = (char **)malloc(test_count * sizeof(char *));
+    if (!lines) {
+        fclose(fp);
+        printf("Memory allocation error.\n");
+        printf("\nPress Enter to return to menu...");
+        char wait[8];
+        read_line(wait, sizeof(wait));
+        return;
+    }
+    
+    for (int i = 0; i < test_count; i++) {
+        lines[i] = (char *)malloc(512 * sizeof(char));
+        if (!lines[i]) {
+            /* Free already allocated */
+            for (int j = 0; j < i; j++) free(lines[j]);
+            free(lines);
+            fclose(fp);
+            printf("Memory allocation error.\n");
+            printf("\nPress Enter to return to menu...");
+            char wait[8];
+            read_line(wait, sizeof(wait));
+            return;
+        }
+    }
+    
+    int line_count = 0;
+    
+    /* Read all test entries */
+    while (fgets(line, sizeof(line), fp) && line_count < test_count) {
+        trim_newline(line);
+        if (strstr(line, "[TEST]")) {
+            strncpy(lines[line_count], line, 511);
+            lines[line_count][511] = '\0';
+            line_count++;
+        }
+    }
+    
+    fclose(fp);
+    
+    /* Display results */
+    printf("Test Results (showing last 50 entries):\n");
+    printf("========================================\n\n");
+    
+    int max_display = 50;
+    int start_idx = (line_count > max_display) ? (line_count - max_display) : 0;
+    
+    /* Display in reverse order (most recent first) */
+    for (int i = line_count - 1; i >= start_idx; i--) {
+        printf("%s\n", lines[i]);
+    }
+    
+    if (test_count > max_display) {
+        printf("\n... (showing last %d of %d test results)\n", max_display, test_count);
+    } else {
+        printf("\nTotal test results: %d\n", test_count);
+    }
+    
+    /* Free allocated memory */
+    for (int i = 0; i < test_count; i++) {
+        free(lines[i]);
+    }
+    free(lines);
+    
+    printf("\nPress Enter to return to menu...");
+    char wait[8];
+    read_line(wait, sizeof(wait));
+}
+
 /* Main menu - choose mode first, then chapter */
 void main_menu(const char *username) {
     while (1) {
@@ -246,6 +353,7 @@ void main_menu(const char *username) {
         printf("1) Learn Mode (immediate feedback with explanations, no score)\n");
         printf("2) Test Mode (submit all answers, see results and score)\n");
         printf("3) Exit program\n");
+        printf("5) Score History\n");
         printf("Choose: ");
         char inp[16];
         read_line(inp, sizeof(inp));
@@ -253,6 +361,11 @@ void main_menu(const char *username) {
         
         if (mode_sel == 3) {
             break; /* exit */
+        }
+        
+        if (mode_sel == 5) {
+            show_score_history();
+            continue;
         }
         
         if (mode_sel != 1 && mode_sel != 2) {

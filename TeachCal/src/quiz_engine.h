@@ -15,5 +15,8 @@ int chapter_menu(const Chapter *chap, const char *username, int mode);
 /* Main menu - choose mode first, then chapter */
 void main_menu(const char *username);
 
+/* Display score history from log file */
+void show_score_history(void);
+
 #endif /* QUIZ_ENGINE_H */
 
