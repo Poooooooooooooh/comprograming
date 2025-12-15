@@ -214,7 +214,7 @@ void run_test_mode(const Chapter *chap, const char *username) {
     
     /* Log test results */
     log_test_result(username, chap->code, score, ask_total);
-    printf("\nResults saved to logs/quiz_score.log\n");
+    printf("\nResults saved to logging.h\n");
     printf("\nPress Enter to return to menu...");
     char wait[8];
     read_line(wait, sizeof(wait));
