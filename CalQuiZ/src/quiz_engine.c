@@ -6,6 +6,16 @@
 #include <stdlib.h>
 #include <string.h>
 
+/* 
+ * quiz_engine.c
+ * -------------
+ * This module is responsible only for *running* individual quizzes
+ * in Learn or Test mode for a single chapter.
+ *
+ * It does NOT know about the main menu, chapter selection, or
+ * score history. Those higher-level flows are handled by main.c.
+ */
+
 /* Learn mode: Show immediate feedback with explanations (no score recording) */
 void run_learn_mode(const Chapter *chap) {
     clear_screen();
@@ -223,176 +233,5 @@ void run_test_mode(const Chapter *chap, const char *username) {
     printf("\nPress Enter to return to menu...");
     char wait[8];
     read_line(wait, sizeof(wait));
-}
-
-/* Per-chapter submenu */
-int chapter_menu(const Chapter *chap, const char *username, int mode) {
-    /* mode: 0 = Learn, 1 = Test */
-    /* Build a simple log message (no fancy snprintf) */
-    char log_msg[256];
-    char mode_text[16];
-
-    if (mode == 0) {
-        strcpy(mode_text, "Learn");
-    } else {
-        strcpy(mode_text, "Test");
-    }
-
-    strcpy(log_msg, "User: ");
-    strcat(log_msg, username);
-    strcat(log_msg, " | Mode: ");
-    strcat(log_msg, mode_text);
-    strcat(log_msg, " | Chapter: ");
-    strcat(log_msg, chap->name);
-
-    log_event("INFO", log_msg);
-    
-    if (mode == 0) {
-        run_learn_mode(chap);
-    } else {
-        run_test_mode(chap, username);
-    }
-    return 0; /* back to main menu */
-}
-
-/* Display score history from log file */
-void show_score_history(void) {
-    clear_screen();
-    printf("=== Score History ===\n\n");
-    
-    FILE *fp = fopen("logs/quiz_score.log", "r");
-    if (!fp) {
-        printf("No score history found. Take a test to generate scores!\n");
-        printf("\nPress Enter to return to menu...");
-        char wait[8];
-        read_line(wait, sizeof(wait));
-        return;
-    }
-    
-    char line[512];
-    int count = 0;
-    int test_count = 0;
-    
-    /* Count total lines and test entries */
-    while (fgets(line, sizeof(line), fp)) {
-        count++;
-        if (strstr(line, "[TEST]")) {
-            test_count++;
-        }
-    }
-    
-    if (test_count == 0) {
-        fclose(fp);
-        printf("No test scores found. Take a test to generate scores!\n");
-        printf("\nPress Enter to return to menu...");
-        char wait[8];
-        read_line(wait, sizeof(wait));
-        return;
-    }
-    
-    /* Rewind and collect all test entries */
-    rewind(fp);
-    
-    /* Read test lines into a fixed-size array (simpler than malloc/free) */
-    #define MAX_HISTORY_LINES 100
-    char history[MAX_HISTORY_LINES][512];
-    int line_count = 0;
-
-    while (fgets(line, sizeof(line), fp) && line_count < MAX_HISTORY_LINES) {
-        trim_newline(line);
-        if (strstr(line, "[TEST]")) {
-            strncpy(history[line_count], line, sizeof(history[line_count]) - 1);
-            history[line_count][sizeof(history[line_count]) - 1] = '\0';
-            line_count++;
-        }
-    }
-
-    fclose(fp);
-
-    /* Display results */
-    printf("Test Results (showing last results):\n");
-    printf("====================================\n\n");
-
-    int max_display = 50;
-    int start_idx;
-    if (line_count > max_display) {
-        start_idx = line_count - max_display;
-    } else {
-        start_idx = 0;
-    }
-
-    /* Display in reverse order (most recent first) */
-    for (int i = line_count - 1; i >= start_idx; i--) {
-        printf("%s\n", history[i]);
-    }
-
-    if (line_count > max_display) {
-        printf("\n... (showing last %d results)\n", max_display);
-    } else {
-        printf("\nTotal test results shown: %d\n", line_count);
-    }
-    printf("\nPress Enter to return to menu...");
-    char wait[8];
-    read_line(wait, sizeof(wait));
-}
-
-/* Main menu - choose mode first, then chapter */
-void main_menu(const char *username) {
-    while (1) {
-        clear_screen();
-        printf("=== Calculus 1 Tutor ===\n");
-        printf("User: %s\n\n", username);
-        printf("Choose mode:\n");
-        printf("1) Learn Mode (immediate feedback with explanations, no score)\n");
-        printf("2) Test Mode (submit all answers, see results and score)\n");
-        printf("3) Exit program\n");
-        printf("5) Score History\n");
-        printf("Choose: ");
-        char inp[16];
-        read_line(inp, sizeof(inp));
-        int mode_sel = atoi(inp);
-        
-        if (mode_sel == 3) {
-            break; /* exit */
-        }
-        
-        if (mode_sel == 5) {
-            show_score_history();
-            continue;
-        }
-        
-        if (mode_sel != 1 && mode_sel != 2) {
-            continue; /* invalid input */
-        }
-        
-        int mode = mode_sel - 1; /* 0 = Learn, 1 = Test */
-        
-        /* Choose chapter */
-        while (1) {
-            clear_screen();
-            printf("=== Calculus 1 Tutor ===\n");
-            printf("User: %s\n", username);
-            if (mode == 0) {
-                printf("Mode: Learn\n\n");
-            } else {
-                printf("Mode: Test\n\n");
-            }
-            for (int i = 0; i < CHAPTER_COUNT; i++) {
-                printf("%d) %s\n", i+1, CHAPTERS[i].name);
-            }
-            printf("%d) Back to mode selection\n", CHAPTER_COUNT + 1);
-            printf("Choose chapter: ");
-            read_line(inp, sizeof(inp));
-            int chap_sel = atoi(inp);
-            
-            if (chap_sel == CHAPTER_COUNT + 1) {
-                break; /* back to mode selection */
-            }
-            
-            if (chap_sel >= 1 && chap_sel <= CHAPTER_COUNT) {
-                chapter_menu(&CHAPTERS[chap_sel-1], username, mode);
-            }
-        }
-    }
 }
 
