@@ -44,78 +44,13 @@ void clear_screen(void) {
 #endif
 }
 
-/* Console UTF-8 setup */
+/* Console UTF-8 setup (simplified so beginners can understand it more easily) */
 void setup_console_utf8(void) {
 #ifdef _WIN32
-    /* Set UTF-8 code pages */
+    /* Just set the console code page to UTF-8.
+       This is enough for our simple quiz program. */
     SetConsoleOutputCP(65001);
     SetConsoleCP(65001);
-    
-    /* Enable virtual terminal processing for better Unicode support (Windows 10+) */
-    HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
-    if (hOut != INVALID_HANDLE_VALUE) {
-        DWORD dwMode = 0;
-        if (GetConsoleMode(hOut, &dwMode)) {
-            dwMode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
-            SetConsoleMode(hOut, dwMode); /* Ignore error if not supported */
-        }
-    }
-    
-    /* Try to set a font that supports mathematical symbols */
-    HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
-    if (hConsole != INVALID_HANDLE_VALUE) {
-        /* Use CONSOLE_FONT_INFOEX if available (Windows Vista+) */
-        typedef struct _CONSOLE_FONT_INFOEX_WRAP {
-            ULONG cbSize;
-            DWORD nFont;
-            COORD dwFontSize;
-            UINT FontFamily;
-            UINT FontWeight;
-            WCHAR FaceName[LF_FACESIZE];
-        } CONSOLE_FONT_INFOEX_WRAP;
-        
-        typedef BOOL (WINAPI *GetCurrentConsoleFontExProc)(HANDLE, BOOL, void*);
-        typedef BOOL (WINAPI *SetCurrentConsoleFontExProc)(HANDLE, BOOL, void*);
-        
-        HMODULE hKernel32 = GetModuleHandleA("kernel32.dll");
-        if (hKernel32) {
-            GetCurrentConsoleFontExProc pGetFont = (GetCurrentConsoleFontExProc)
-                GetProcAddress(hKernel32, "GetCurrentConsoleFontEx");
-            SetCurrentConsoleFontExProc pSetFont = (SetCurrentConsoleFontExProc)
-                GetProcAddress(hKernel32, "SetCurrentConsoleFontEx");
-            
-            if (pGetFont && pSetFont) {
-                CONSOLE_FONT_INFOEX_WRAP cfi;
-                memset(&cfi, 0, sizeof(cfi));
-                cfi.cbSize = sizeof(cfi);
-                if (pGetFont(hConsole, FALSE, &cfi)) {
-                    /* Try to use Consolas or a font that supports Unicode */
-                    #ifdef __MINGW32__
-                        wcscpy(cfi.FaceName, L"Consolas");
-                    #else
-                        wcscpy_s(cfi.FaceName, LF_FACESIZE, L"Consolas");
-                    #endif
-                    cfi.dwFontSize.X = 0;
-                    cfi.dwFontSize.Y = 16;
-                    cfi.FontFamily = FF_DONTCARE;
-                    cfi.FontWeight = FW_NORMAL;
-                    pSetFont(hConsole, FALSE, &cfi); /* Ignore error if fails */
-                }
-            }
-        }
-    }
-    
-    /* Set console buffer size for better display */
-    HANDLE hConsoleOutput = GetStdHandle(STD_OUTPUT_HANDLE);
-    if (hConsoleOutput != INVALID_HANDLE_VALUE) {
-        CONSOLE_SCREEN_BUFFER_INFO csbi;
-        if (GetConsoleScreenBufferInfo(hConsoleOutput, &csbi)) {
-            COORD newSize;
-            newSize.X = csbi.dwSize.X;
-            newSize.Y = 3000; /* Increase buffer for scrolling */
-            SetConsoleScreenBufferSize(hConsoleOutput, newSize);
-        }
-    }
 #endif
 }
 

@@ -207,7 +207,12 @@ void run_test_mode(const Chapter *chap, const char *username) {
         printf("\n");
     }
     
-    double percentage = (double)score / ask_total * 100.0;
+    double percentage;
+    if (ask_total > 0) {
+        percentage = (double)score / ask_total * 100.0;
+    } else {
+        percentage = 0.0;
+    }
     printf("=== Final Score ===\n");
     printf("Score: %d/%d\n", score, ask_total);
     printf("Percentage: %.1f%%\n", percentage);
@@ -223,9 +228,23 @@ void run_test_mode(const Chapter *chap, const char *username) {
 /* Per-chapter submenu */
 int chapter_menu(const Chapter *chap, const char *username, int mode) {
     /* mode: 0 = Learn, 1 = Test */
+    /* Build a simple log message (no fancy snprintf) */
     char log_msg[256];
-    snprintf(log_msg, sizeof(log_msg), "User: %s | Mode: %s | Chapter: %s", 
-             username, mode == 0 ? "Learn" : "Test", chap->name);
+    char mode_text[16];
+
+    if (mode == 0) {
+        strcpy(mode_text, "Learn");
+    } else {
+        strcpy(mode_text, "Test");
+    }
+
+    strcpy(log_msg, "User: ");
+    strcat(log_msg, username);
+    strcat(log_msg, " | Mode: ");
+    strcat(log_msg, mode_text);
+    strcat(log_msg, " | Chapter: ");
+    strcat(log_msg, chap->name);
+
     log_event("INFO", log_msg);
     
     if (mode == 0) {
@@ -274,70 +293,44 @@ void show_score_history(void) {
     /* Rewind and collect all test entries */
     rewind(fp);
     
-    /* Allocate array for all test entries */
-    char **lines = (char **)malloc(test_count * sizeof(char *));
-    if (!lines) {
-        fclose(fp);
-        printf("Memory allocation error.\n");
-        printf("\nPress Enter to return to menu...");
-        char wait[8];
-        read_line(wait, sizeof(wait));
-        return;
-    }
-    
-    for (int i = 0; i < test_count; i++) {
-        lines[i] = (char *)malloc(512 * sizeof(char));
-        if (!lines[i]) {
-            /* Free already allocated */
-            for (int j = 0; j < i; j++) free(lines[j]);
-            free(lines);
-            fclose(fp);
-            printf("Memory allocation error.\n");
-            printf("\nPress Enter to return to menu...");
-            char wait[8];
-            read_line(wait, sizeof(wait));
-            return;
-        }
-    }
-    
+    /* Read test lines into a fixed-size array (simpler than malloc/free) */
+    #define MAX_HISTORY_LINES 100
+    char history[MAX_HISTORY_LINES][512];
     int line_count = 0;
-    
-    /* Read all test entries */
-    while (fgets(line, sizeof(line), fp) && line_count < test_count) {
+
+    while (fgets(line, sizeof(line), fp) && line_count < MAX_HISTORY_LINES) {
         trim_newline(line);
         if (strstr(line, "[TEST]")) {
-            strncpy(lines[line_count], line, 511);
-            lines[line_count][511] = '\0';
+            strncpy(history[line_count], line, sizeof(history[line_count]) - 1);
+            history[line_count][sizeof(history[line_count]) - 1] = '\0';
             line_count++;
         }
     }
-    
+
     fclose(fp);
-    
+
     /* Display results */
-    printf("Test Results (showing last 50 entries):\n");
-    printf("========================================\n\n");
-    
+    printf("Test Results (showing last results):\n");
+    printf("====================================\n\n");
+
     int max_display = 50;
-    int start_idx = (line_count > max_display) ? (line_count - max_display) : 0;
-    
+    int start_idx;
+    if (line_count > max_display) {
+        start_idx = line_count - max_display;
+    } else {
+        start_idx = 0;
+    }
+
     /* Display in reverse order (most recent first) */
     for (int i = line_count - 1; i >= start_idx; i--) {
-        printf("%s\n", lines[i]);
+        printf("%s\n", history[i]);
     }
-    
-    if (test_count > max_display) {
-        printf("\n... (showing last %d of %d test results)\n", max_display, test_count);
+
+    if (line_count > max_display) {
+        printf("\n... (showing last %d results)\n", max_display);
     } else {
-        printf("\nTotal test results: %d\n", test_count);
+        printf("\nTotal test results shown: %d\n", line_count);
     }
-    
-    /* Free allocated memory */
-    for (int i = 0; i < test_count; i++) {
-        free(lines[i]);
-    }
-    free(lines);
-    
     printf("\nPress Enter to return to menu...");
     char wait[8];
     read_line(wait, sizeof(wait));
@@ -379,7 +372,11 @@ void main_menu(const char *username) {
             clear_screen();
             printf("=== Calculus 1 Tutor ===\n");
             printf("User: %s\n", username);
-            printf("Mode: %s\n\n", mode == 0 ? "Learn" : "Test");
+            if (mode == 0) {
+                printf("Mode: Learn\n\n");
+            } else {
+                printf("Mode: Test\n\n");
+            }
             for (int i = 0; i < CHAPTER_COUNT; i++) {
                 printf("%d) %s\n", i+1, CHAPTERS[i].name);
             }

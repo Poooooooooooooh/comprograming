@@ -41,7 +41,13 @@ void log_test_result(const char *username, const char *chap_code, int score, int
     char timestamp[64];
     strftime(timestamp, sizeof(timestamp), "%Y-%m-%d %H:%M:%S", lt);
     
-    double percentage = total > 0 ? (double)score / total * 100.0 : 0.0;
+    double percentage;
+
+if (total > 0) {
+    percentage = (double)score / total * 100.0;
+} else {
+    percentage = 0.0;
+}
     
     /* Log format: [TIMESTAMP] [LEVEL] User: username | Chapter: code | Score: X/Y (Z%) */
     fprintf(fp, "[%s] [TEST] User: %s | Chapter: %s | Score: %d/%d (%.1f%%)\n", 

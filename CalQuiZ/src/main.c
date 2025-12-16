@@ -20,8 +20,10 @@ int main(void) {
     read_line(username, sizeof(username));
     if (username[0] == '\0') strcpy(username, "guest");
     
+    /* Simple log message instead of using snprintf */
     char log_msg[128];
-    snprintf(log_msg, sizeof(log_msg), "User logged in: %s", username);
+    strcpy(log_msg, "User logged in: ");
+    strcat(log_msg, username);
     log_event("INFO", log_msg);
     
     main_menu(username);
